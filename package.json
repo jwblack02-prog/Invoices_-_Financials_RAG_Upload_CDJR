@@ -1,0 +1,26 @@
+{
+  "name": "invoices-financials-rag-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:trigger": "npx trigger dev",
+    "deploy:trigger": "npx trigger deploy"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^4.4.3",
+    "@trigger.dev/sdk": "^4.4.3",
+    "@types/node": "^22.0.0",
+    "trigger.dev": "^4.4.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.6.0",
+    "@google/genai": "^1.0.0",
+    "@microsoft/microsoft-graph-client": "^3.0.0",
+    "@pinecone-database/pinecone": "^4.0.0",
+    "dotenv": "^17.3.1",
+    "pdf-parse": "^1.1.1"
+  }
+}
