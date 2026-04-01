@@ -1,4 +1,4 @@
-import { schedules, task, logger } from "@trigger.dev/sdk/v3";
+import { schedules } from "@trigger.dev/sdk/v3";
 import { runIngestion } from "../lib/ingestCore.js";
 
 // ============================================================
@@ -14,27 +14,6 @@ export const ingestCDJRScheduled = schedules.task({
   },
 
   run: async () => {
-    return runIngestion({
-      userId: process.env.ONEDRIVE_USER_ID!,
-      folderPath: process.env.ONEDRIVE_FOLDER_PATH!,
-      indexName: process.env.PINECONE_INDEX_NAME || "invoices-financials-cdjr",
-    });
-  },
-});
-
-// ============================================================
-// CDJR Store — On-demand (triggered via HTTP from n8n/Telegram)
-// ============================================================
-export const ingestCDJROnDemand = task({
-  id: "ingest-cdjr-on-demand",
-  maxDuration: 300,
-  retry: {
-    maxAttempts: 3,
-    minTimeoutInMs: 30_000,
-  },
-
-  run: async () => {
-    logger.info("CDJR ingestion triggered on-demand (n8n/Telegram)");
     return runIngestion({
       userId: process.env.ONEDRIVE_USER_ID!,
       folderPath: process.env.ONEDRIVE_FOLDER_PATH!,
