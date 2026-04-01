@@ -4,14 +4,20 @@ import type { EmbeddedChunk } from "./types.js";
 const UPSERT_BATCH_SIZE = 100;
 
 let pinecone: Pinecone | null = null;
-let index: Index | null = null;
+const indexCache = new Map<string, Index>();
 
-export function getPineconeIndex(): Index {
-  if (index) return index;
+export function getPineconeIndex(indexName?: string): Index {
+  const name = indexName || process.env.PINECONE_INDEX_NAME || "invoices-financials";
 
-  pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
-  index = pinecone.index(process.env.PINECONE_INDEX_NAME || "invoices-financials");
-  return index;
+  if (indexCache.has(name)) return indexCache.get(name)!;
+
+  if (!pinecone) {
+    pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
+  }
+
+  const idx = pinecone.index(name);
+  indexCache.set(name, idx);
+  return idx;
 }
 
 export async function upsertVectors(
