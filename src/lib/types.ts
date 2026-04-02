@@ -29,3 +29,21 @@ export interface ChunkRecord {
 export interface EmbeddedChunk extends ChunkRecord {
   embedding: number[];
 }
+
+// === Query Types ===
+
+export interface QueryRequest {
+  question: string;
+}
+
+export interface QueryMatch {
+  id: string;
+  score: number;
+  text: string;
+  metadata: Record<string, any>;
+}
+
+export interface QueryResponse {
+  answer: string;
+  sources: QueryMatch[];
+}

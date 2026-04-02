@@ -1,5 +1,5 @@
 import { Pinecone, type Index } from "@pinecone-database/pinecone";
-import type { EmbeddedChunk } from "./types.js";
+import type { EmbeddedChunk, QueryMatch } from "./types.js";
 
 const UPSERT_BATCH_SIZE = 100;
 
@@ -31,7 +31,7 @@ export async function upsertVectors(
       batch.map((chunk) => ({
         id: chunk.id,
         values: chunk.embedding,
-        metadata: chunk.metadata,
+        metadata: { ...chunk.metadata, text: chunk.text },
       }))
     );
 
@@ -63,6 +63,26 @@ export async function checkIfProcessed(
     // If query fails, assume not processed — safe to re-process
     return false;
   }
+}
+
+export async function queryVectors(
+  idx: Index,
+  embedding: number[],
+  topK = 5
+): Promise<QueryMatch[]> {
+  const results = await idx.query({
+    vector: embedding,
+    topK,
+    includeMetadata: true,
+    filter: { _type: { $ne: "sentinel" } },
+  });
+
+  return (results.matches || []).map((match) => ({
+    id: match.id,
+    score: match.score || 0,
+    text: (match.metadata as any)?.text || "",
+    metadata: (match.metadata as Record<string, any>) || {},
+  }));
 }
 
 export async function deleteByFileId(

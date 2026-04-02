@@ -48,6 +48,29 @@ async function retryWithBackoff<T>(
   throw new Error("Max retries exceeded");
 }
 
+export async function embedQuery(question: string): Promise<number[]> {
+  const ai = getGenAI();
+  const model = process.env.EMBEDDING_MODEL || "gemini-embedding-001";
+  const dimensions = parseInt(process.env.EMBEDDING_DIMENSIONS || "3072", 10);
+
+  const response = await retryWithBackoff(async () => {
+    return ai.models.embedContent({
+      model,
+      contents: [question],
+      config: {
+        taskType: "RETRIEVAL_QUERY",
+        outputDimensionality: dimensions,
+      },
+    });
+  });
+
+  if (!response.embeddings?.[0]?.values) {
+    throw new Error("Failed to embed question");
+  }
+
+  return response.embeddings[0].values;
+}
+
 export async function embedChunks(
   chunks: ChunkRecord[]
 ): Promise<EmbeddedChunk[]> {
