@@ -1,4 +1,4 @@
-import pdfParse from "pdf-parse";
+import { extractText } from "unpdf";
 import type { ChunkRecord } from "./types.js";
 
 const CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE || "900", 10);
@@ -35,8 +35,11 @@ export async function extractAndChunk(
   folderPath: string,
   lastModified: string
 ): Promise<ChunkRecord[]> {
-  const parsed = await pdfParse(pdfBuffer);
-  const fullText = parsed.text;
+  const parsed = await extractText(new Uint8Array(pdfBuffer));
+  // unpdf returns text as string[] (one per page) — join into a single string
+  const fullText = Array.isArray(parsed.text)
+    ? parsed.text.join("\n")
+    : String(parsed.text || "");
 
   if (!fullText || fullText.trim().length === 0) {
     console.log(`Warning: No text extracted from ${fileName} — may be a scanned/image PDF`);

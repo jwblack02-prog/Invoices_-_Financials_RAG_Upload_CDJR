@@ -3,8 +3,11 @@ import type { Index } from "@pinecone-database/pinecone";
 const SENTINEL_ID = "__delta_token__";
 const EMBEDDING_DIMENSIONS = parseInt(process.env.EMBEDDING_DIMENSIONS || "3072", 10);
 
-function zeroVector(): number[] {
-  return new Array(EMBEDDING_DIMENSIONS).fill(0);
+function sentinelVector(): number[] {
+  // Pinecone rejects all-zero vectors, so use a tiny non-zero value
+  const vec = new Array(EMBEDDING_DIMENSIONS).fill(0);
+  vec[0] = 1e-7;
+  return vec;
 }
 
 export async function readDeltaToken(index: Index): Promise<string | null> {
@@ -27,7 +30,7 @@ export async function saveDeltaToken(
   await index.upsert([
     {
       id: SENTINEL_ID,
-      values: zeroVector(),
+      values: sentinelVector(),
       metadata: {
         delta_token: token,
         updated_at: new Date().toISOString(),

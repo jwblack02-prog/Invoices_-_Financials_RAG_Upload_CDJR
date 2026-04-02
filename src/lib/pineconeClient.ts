@@ -49,7 +49,7 @@ export async function checkIfProcessed(
   try {
     // Query for any vector with this file ID and same lastModified
     const results = await idx.query({
-      vector: new Array(parseInt(process.env.EMBEDDING_DIMENSIONS || "3072", 10)).fill(0),
+      vector: (() => { const v = new Array(parseInt(process.env.EMBEDDING_DIMENSIONS || "3072", 10)).fill(0); v[0] = 1e-7; return v; })(),
       topK: 1,
       filter: {
         onedrive_file_id: { $eq: fileId },

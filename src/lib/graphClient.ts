@@ -9,9 +9,9 @@ function getClient(): Client {
   if (graphClient) return graphClient;
 
   const credential = new ClientSecretCredential(
-    process.env.AZURE_TENANT_ID!,
-    process.env.AZURE_CLIENT_ID!,
-    process.env.AZURE_CLIENT_SECRET!
+    process.env.MS_GRAPH_TENANT_ID!,
+    process.env.MS_GRAPH_CLIENT_ID!,
+    process.env.MS_GRAPH_CLIENT_SECRET!
   );
 
   const authProvider = new TokenCredentialAuthenticationProvider(credential, {
@@ -72,8 +72,39 @@ export async function getDelta(
     // Use the full deltaLink URL stored from last time
     url = deltaToken;
   } else {
-    // First run — get all items
-    url = `/users/${userId}/drive/root:/${folderPath}:/delta`;
+    // First run — resolve the folder by item ID (more reliable than path-based delta)
+    console.log(`Resolving folder: /users/${userId}/drive/root:/${folderPath}`);
+
+    // First verify the drive is accessible
+    try {
+      const drive = await fetchWithRetry(() =>
+        client.api(`/users/${userId}/drive`).get()
+      );
+      console.log(`Drive found: ${drive.name} (${drive.driveType})`);
+    } catch (err: any) {
+      console.error(`Cannot access user drive. userId=${userId}, error=${err.message}`);
+      throw err;
+    }
+
+    // Try to resolve the folder
+    try {
+      const folder = await fetchWithRetry(() =>
+        client.api(`/users/${userId}/drive/root:/${folderPath}`).get()
+      );
+      console.log(`Folder found: ${folder.name}, id=${folder.id}`);
+      // Use item ID-based delta (more reliable)
+      url = `/users/${userId}/drive/items/${folder.id}/delta`;
+    } catch (err: any) {
+      // If folder not found, log what's at the root to help debug
+      console.error(`Folder not found at path: ${folderPath}`);
+      console.log("Listing drive root to help debug...");
+      try {
+        const root = await client.api(`/users/${userId}/drive/root/children`).get();
+        const names = root.value?.map((item: any) => item.name) || [];
+        console.log(`Root folder contents: ${JSON.stringify(names)}`);
+      } catch { /* ignore */ }
+      throw err;
+    }
   }
 
   let nextDeltaToken = "";
