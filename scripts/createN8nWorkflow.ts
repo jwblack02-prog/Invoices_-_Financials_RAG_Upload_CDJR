@@ -68,7 +68,7 @@ const workflow = {
     {
       parameters: {
         method: "GET",
-        url: `=https://api.trigger.dev/api/v1/runs/{{ $('Trigger Query Task').item.json.id }}`,
+        url: `=https://api.trigger.dev/api/v3/runs/{{ $('Trigger Query Task').item.json.id }}`,
         authentication: "genericCredentialType",
         genericAuthType: "httpHeaderAuth",
         sendHeaders: true,
@@ -101,11 +101,11 @@ const workflow = {
           conditions: [
             {
               id: "condition-completed",
-              leftValue: "={{ $json.status }}",
-              rightValue: "COMPLETED",
+              leftValue: "={{ $json.isCompleted }}",
+              rightValue: true,
               operator: {
-                type: "string",
-                operation: "equals",
+                type: "boolean",
+                operation: "true",
               },
             },
           ],
@@ -117,6 +117,34 @@ const workflow = {
       type: "n8n-nodes-base.if",
       typeVersion: 2.2,
       position: [1000, 0],
+    },
+    {
+      parameters: {
+        conditions: {
+          options: {
+            caseSensitive: true,
+            leftValue: "",
+            typeValidation: "strict",
+          },
+          conditions: [
+            {
+              id: "condition-success",
+              leftValue: "={{ $json.isSuccess }}",
+              rightValue: true,
+              operator: {
+                type: "boolean",
+                operation: "true",
+              },
+            },
+          ],
+          combinator: "and",
+        },
+      },
+      id: "if-success",
+      name: "Is Success?",
+      type: "n8n-nodes-base.if",
+      typeVersion: 2.2,
+      position: [1250, -100],
     },
     {
       parameters: {
@@ -145,7 +173,7 @@ return [{ json: { chatId, answer } }];`,
       name: "Format Answer",
       type: "n8n-nodes-base.code",
       typeVersion: 2,
-      position: [1250, -100],
+      position: [1500, -200],
     },
     {
       parameters: {
@@ -158,7 +186,20 @@ return [{ json: { chatId, answer } }];`,
       name: "Reply in Telegram",
       type: "n8n-nodes-base.telegram",
       typeVersion: 1.2,
-      position: [1500, -100],
+      position: [1750, -200],
+    },
+    {
+      parameters: {
+        operation: "sendMessage",
+        chatId: `={{ $('Telegram Trigger').item.json.message.chat.id }}`,
+        text: "❌ Sorry, I couldn't process your question. Please try again or contact support.",
+        additionalFields: {},
+      },
+      id: "send-error",
+      name: "Send Error Message",
+      type: "n8n-nodes-base.telegram",
+      typeVersion: 1.2,
+      position: [1500, 100],
     },
     {
       parameters: {
@@ -197,8 +238,14 @@ return [{ json: { chatId, answer } }];`,
     },
     "Is Completed?": {
       main: [
-        [{ node: "Format Answer", type: "main", index: 0 }],
+        [{ node: "Is Success?", type: "main", index: 0 }],
         [{ node: "Still Processing", type: "main", index: 0 }],
+      ],
+    },
+    "Is Success?": {
+      main: [
+        [{ node: "Format Answer", type: "main", index: 0 }],
+        [{ node: "Send Error Message", type: "main", index: 0 }],
       ],
     },
     "Format Answer": {

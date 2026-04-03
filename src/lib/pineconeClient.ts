@@ -7,7 +7,7 @@ let pinecone: Pinecone | null = null;
 const indexCache = new Map<string, Index>();
 
 export function getPineconeIndex(indexName?: string): Index {
-  const name = indexName || process.env.PINECONE_INDEX_NAME || "invoices-financials";
+  const name = indexName || process.env.PINECONE_INDEX_NAME || "invoices-financials-cdjr";
 
   if (indexCache.has(name)) return indexCache.get(name)!;
 

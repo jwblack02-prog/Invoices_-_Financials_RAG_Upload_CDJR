@@ -87,7 +87,7 @@ Content-Type: application/json
 
 **Check result:**
 ```
-GET https://api.trigger.dev/api/v1/runs/<run_id>
+GET https://api.trigger.dev/api/v3/runs/<run_id>
 Authorization: Bearer <TRIGGER_PROD_SECRET_KEY>
 ```
 
