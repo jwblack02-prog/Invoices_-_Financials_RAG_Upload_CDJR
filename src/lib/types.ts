@@ -34,6 +34,7 @@ export interface EmbeddedChunk extends ChunkRecord {
 
 export interface QueryRequest {
   question: string;
+  chatId?: string; // Telegram chat ID — if set, task sends reply directly
 }
 
 export interface QueryMatch {

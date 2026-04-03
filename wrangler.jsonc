@@ -1,0 +1,13 @@
+{
+  // Cloudflare Worker config for CDJR Telegram webhook receiver.
+  // Deploy: npx wrangler deploy
+  // Docs: https://developers.cloudflare.com/workers/
+
+  "name": "cdjr-telegram-webhook",
+  "main": "cloudflare-worker/telegram-webhook.ts",
+  "compatibility_date": "2024-01-01",
+
+  // Secrets (NOT stored here — set via CLI):
+  //   npx wrangler secret put TRIGGER_PROD_SECRET_KEY
+  //   npx wrangler secret put TELEGRAM_BOT_TOKEN
+}
