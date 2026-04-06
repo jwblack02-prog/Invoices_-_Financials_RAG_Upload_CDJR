@@ -32,6 +32,7 @@ export async function upsertVectors(
       chunk_index: chunk.metadata.chunk_index,
       total_chunks: chunk.metadata.total_chunks,
       last_modified: chunk.metadata.last_modified,
+      web_url: chunk.metadata.web_url || "",
     }));
 
     const { error } = await client
@@ -69,7 +70,7 @@ export async function checkIfProcessed(
 export async function queryVectors(
   client: SupabaseClient,
   embedding: number[],
-  topK = 5
+  topK = 30
 ): Promise<QueryMatch[]> {
   const { data, error } = await client.rpc("match_documents", {
     query_embedding: `[${embedding.join(",")}]`,

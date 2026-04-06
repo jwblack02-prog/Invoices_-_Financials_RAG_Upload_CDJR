@@ -6,6 +6,7 @@ export interface DriveItemChange {
   size: number;
   deleted: boolean;
   isFile: boolean;
+  webUrl: string;
 }
 
 export interface DeltaResponse {
@@ -23,6 +24,7 @@ export interface ChunkRecord {
     chunk_index: number;
     total_chunks: number;
     last_modified: string;
+    web_url: string;
   };
 }
 

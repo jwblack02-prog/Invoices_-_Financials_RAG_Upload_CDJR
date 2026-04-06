@@ -50,7 +50,7 @@ async function retryWithBackoff<T>(
 
 export async function embedQuery(question: string): Promise<number[]> {
   const ai = getGenAI();
-  const model = process.env.EMBEDDING_MODEL || "gemini-embedding-001";
+  const model = process.env.EMBEDDING_MODEL || "gemini-embedding-exp-03-07";
   const dimensions = parseInt(process.env.EMBEDDING_DIMENSIONS || "3072", 10);
 
   const response = await retryWithBackoff(async () => {

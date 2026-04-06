@@ -96,7 +96,8 @@ export async function runIngestion(config: IngestConfig) {
       item.id,
       item.name,
       item.parentPath,
-      item.lastModifiedDateTime
+      item.lastModifiedDateTime,
+      item.webUrl
     );
 
     if (chunks.length === 0) {

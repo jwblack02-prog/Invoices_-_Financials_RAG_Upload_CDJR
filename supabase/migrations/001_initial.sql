@@ -10,8 +10,11 @@ CREATE TABLE IF NOT EXISTS document_chunks (
   chunk_index INTEGER NOT NULL,
   total_chunks INTEGER NOT NULL,
   last_modified TIMESTAMPTZ NOT NULL,
+  web_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+COMMENT ON TABLE document_chunks IS 'CDJR Invoice Uploads';
 
 CREATE INDEX IF NOT EXISTS idx_chunks_file_id ON document_chunks(onedrive_file_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_file_modified ON document_chunks(onedrive_file_id, last_modified);
@@ -37,7 +40,8 @@ AS $$
       'folder_path', dc.folder_path,
       'chunk_index', dc.chunk_index,
       'total_chunks', dc.total_chunks,
-      'last_modified', dc.last_modified
+      'last_modified', dc.last_modified,
+      'web_url', dc.web_url
     ) AS metadata
   FROM document_chunks dc
   ORDER BY dc.embedding <=> query_embedding

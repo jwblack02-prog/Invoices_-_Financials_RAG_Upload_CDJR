@@ -130,6 +130,7 @@ export async function getDelta(
           size: item.size || 0,
           deleted: !!item.deleted,
           isFile: !!item.file,
+          webUrl: item.webUrl || "",
         });
       }
     }
