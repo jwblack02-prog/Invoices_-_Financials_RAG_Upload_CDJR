@@ -11,6 +11,7 @@
     "@trigger.dev/build": "4.4.3",
     "@trigger.dev/sdk": "4.4.3",
     "@types/node": "^22.0.0",
+    "supabase": "^2.84.10",
     "trigger.dev": "4.4.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
