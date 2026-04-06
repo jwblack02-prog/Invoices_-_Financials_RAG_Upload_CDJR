@@ -7,25 +7,23 @@ import { getDelta, downloadFile } from "./lib/graphClient.js";
 import { extractAndChunk } from "./lib/pdfProcessor.js";
 import { embedChunks } from "./lib/embedder.js";
 import {
-  getPineconeIndex,
+  getSupabaseClient,
   upsertVectors,
   checkIfProcessed,
-} from "./lib/pineconeClient.js";
+} from "./lib/supabaseClient.js";
 import { readDeltaToken, saveDeltaToken } from "./lib/deltaTracker.js";
 
 async function main() {
   const userId = process.env.ONEDRIVE_USER_ID!;
   const folderPath = process.env.ONEDRIVE_FOLDER_PATH!;
-  const indexName = process.env.PINECONE_INDEX_NAME || "invoices-financials-cdjr";
 
   console.log("=== Local Ingestion Test ===");
   console.log(`User: ${userId}`);
   console.log(`Folder: ${folderPath}`);
-  console.log(`Index: ${indexName}`);
 
   // Step 1: Delta token
-  const index = getPineconeIndex(indexName);
-  let deltaToken = await readDeltaToken(index);
+  const client = getSupabaseClient();
+  let deltaToken = await readDeltaToken(client);
   console.log(deltaToken ? "Resuming with delta token" : "First run — full scan");
 
   // Step 2: Graph delta
@@ -52,7 +50,7 @@ async function main() {
   if (pdfItems.length === 0) {
     console.log("No PDFs to process. Saving delta token and exiting.");
     if (deltaResponse.deltaToken) {
-      await saveDeltaToken(index, deltaResponse.deltaToken);
+      await saveDeltaToken(client, deltaResponse.deltaToken);
     }
     return;
   }
@@ -63,7 +61,7 @@ async function main() {
 
   for (const item of pdfItems) {
     const alreadyProcessed = await checkIfProcessed(
-      index,
+      client,
       item.id,
       item.lastModifiedDateTime
     );
@@ -92,13 +90,12 @@ async function main() {
     }
 
     console.log(`  Extracted ${chunks.length} chunks`);
-    // Show a preview of first chunk
     console.log(`  First chunk preview: "${chunks[0].text.substring(0, 100)}..."`);
 
     const embedded = await embedChunks(chunks);
     console.log(`  Embedded ${embedded.length} chunks`);
 
-    await upsertVectors(index, embedded);
+    await upsertVectors(client, embedded);
     console.log(`  Upserted ${embedded.length} vectors`);
 
     processedCount++;
@@ -107,7 +104,7 @@ async function main() {
 
   // Step 5: Save delta token
   if (deltaResponse.deltaToken) {
-    await saveDeltaToken(index, deltaResponse.deltaToken);
+    await saveDeltaToken(client, deltaResponse.deltaToken);
     console.log("Delta token saved");
   }
 

@@ -28,6 +28,47 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
   return chunks;
 }
 
+async function mistralOCR(pdfBuffer: Buffer, fileName: string): Promise<string> {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) {
+    console.log(`  No MISTRAL_API_KEY set — skipping OCR for ${fileName}`);
+    return "";
+  }
+
+  console.log(`  Attempting Mistral OCR for ${fileName}...`);
+  try {
+    const base64 = pdfBuffer.toString("base64");
+
+    const response = await fetch("https://api.mistral.ai/v1/ocr", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "mistral-ocr-latest",
+        document: {
+          type: "document_url",
+          document_url: `data:application/pdf;base64,${base64}`,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(`  Mistral OCR error: ${response.status} ${await response.text()}`);
+      return "";
+    }
+
+    const result = await response.json() as any;
+    // Mistral OCR returns pages array with markdown text per page
+    const pages: string[] = (result.pages || []).map((p: any) => p.markdown || "");
+    return pages.join("\n\n");
+  } catch (err) {
+    console.warn(`  Mistral OCR exception for ${fileName}:`, err);
+    return "";
+  }
+}
+
 export async function extractAndChunk(
   pdfBuffer: Buffer,
   fileId: string,
@@ -37,12 +78,18 @@ export async function extractAndChunk(
 ): Promise<ChunkRecord[]> {
   const parsed = await extractText(new Uint8Array(pdfBuffer));
   // unpdf returns text as string[] (one per page) — join into a single string
-  const fullText = Array.isArray(parsed.text)
+  let fullText = Array.isArray(parsed.text)
     ? parsed.text.join("\n")
     : String(parsed.text || "");
 
+  // If unpdf extracted nothing, try Mistral OCR (handles scanned/image PDFs)
   if (!fullText || fullText.trim().length === 0) {
-    console.log(`Warning: No text extracted from ${fileName} — may be a scanned/image PDF`);
+    console.log(`Warning: No text from unpdf for ${fileName} — trying Mistral OCR`);
+    fullText = await mistralOCR(pdfBuffer, fileName);
+  }
+
+  if (!fullText || fullText.trim().length === 0) {
+    console.log(`Warning: No text extracted from ${fileName} — skipping`);
     return [];
   }
 

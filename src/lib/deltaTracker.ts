@@ -1,41 +1,29 @@
-import type { Index } from "@pinecone-database/pinecone";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-const SENTINEL_ID = "__delta_token__";
-const EMBEDDING_DIMENSIONS = parseInt(process.env.EMBEDDING_DIMENSIONS || "3072", 10);
-
-function sentinelVector(): number[] {
-  // Pinecone rejects all-zero vectors, so use a tiny non-zero value
-  const vec = new Array(EMBEDDING_DIMENSIONS).fill(0);
-  vec[0] = 1e-7;
-  return vec;
-}
-
-export async function readDeltaToken(index: Index): Promise<string | null> {
+export async function readDeltaToken(client: SupabaseClient): Promise<string | null> {
   try {
-    const result = await index.fetch([SENTINEL_ID]);
-    const record = result.records[SENTINEL_ID];
-    if (record?.metadata?.delta_token) {
-      return record.metadata.delta_token as string;
-    }
-    return null;
+    const { data, error } = await client
+      .from("delta_state")
+      .select("delta_token")
+      .eq("id", "default")
+      .single();
+
+    if (error || !data) return null;
+    return data.delta_token as string;
   } catch {
     return null;
   }
 }
 
 export async function saveDeltaToken(
-  index: Index,
+  client: SupabaseClient,
   token: string
 ): Promise<void> {
-  await index.upsert([
-    {
-      id: SENTINEL_ID,
-      values: sentinelVector(),
-      metadata: {
-        delta_token: token,
-        updated_at: new Date().toISOString(),
-        _type: "sentinel",
-      },
-    },
-  ]);
+  const { error } = await client.from("delta_state").upsert({
+    id: "default",
+    delta_token: token,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) throw new Error(`Failed to save delta token: ${error.message}`);
 }

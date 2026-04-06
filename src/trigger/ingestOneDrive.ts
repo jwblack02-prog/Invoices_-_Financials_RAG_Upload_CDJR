@@ -17,7 +17,7 @@ export const ingestCDJRScheduled = schedules.task({
     return runIngestion({
       userId: process.env.ONEDRIVE_USER_ID!,
       folderPath: process.env.ONEDRIVE_FOLDER_PATH!,
-      indexName: process.env.PINECONE_INDEX_NAME || "invoices-financials-cdjr",
+      storeName: "CDJR",
     });
   },
 });

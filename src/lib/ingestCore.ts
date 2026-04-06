@@ -4,30 +4,30 @@ import { readDeltaToken, saveDeltaToken } from "./deltaTracker.js";
 import { extractAndChunk } from "./pdfProcessor.js";
 import { embedChunks } from "./embedder.js";
 import {
-  getPineconeIndex,
+  getSupabaseClient,
   upsertVectors,
   checkIfProcessed,
   deleteByFileId,
-} from "./pineconeClient.js";
+} from "./supabaseClient.js";
 
 export interface IngestConfig {
   userId: string;
   folderPath: string;
-  indexName: string;
+  storeName: string;
 }
 
 export async function runIngestion(config: IngestConfig) {
-  const { userId, folderPath, indexName } = config;
-  const index = getPineconeIndex(indexName);
+  const { userId, folderPath, storeName } = config;
+  const client = getSupabaseClient();
 
-  // Step 1: Read delta token from Pinecone
-  logger.info(`[${indexName}] Reading delta token...`);
-  let deltaToken = await readDeltaToken(index);
+  // Step 1: Read delta token from Supabase
+  logger.info(`[${storeName}] Reading delta token...`);
+  let deltaToken = await readDeltaToken(client);
   const isFirstRun = !deltaToken;
   logger.info(
     isFirstRun
-      ? `[${indexName}] First run — full scan`
-      : `[${indexName}] Incremental scan with delta token`
+      ? `[${storeName}] First run — full scan`
+      : `[${storeName}] Incremental scan with delta token`
   );
 
   // Step 2: Call Graph delta API
@@ -36,14 +36,14 @@ export async function runIngestion(config: IngestConfig) {
     deltaResponse = await getDelta(userId, folderPath, deltaToken);
   } catch (error: any) {
     if (error.message === "DELTA_TOKEN_EXPIRED") {
-      logger.warn(`[${indexName}] Delta token expired (410 Gone), doing full re-scan...`);
+      logger.warn(`[${storeName}] Delta token expired (410 Gone), doing full re-scan...`);
       deltaResponse = await getDelta(userId, folderPath, null);
     } else {
       throw error;
     }
   }
 
-  logger.info(`[${indexName}] Delta returned ${deltaResponse.items.length} items`);
+  logger.info(`[${storeName}] Delta returned ${deltaResponse.items.length} items`);
 
   // Step 3: Filter to PDF files only
   const pdfItems = deltaResponse.items.filter(
@@ -58,13 +58,13 @@ export async function runIngestion(config: IngestConfig) {
   );
 
   logger.info(
-    `[${indexName}] Found ${pdfItems.length} PDF(s) to process, ${deletedItems.length} deleted`
+    `[${storeName}] Found ${pdfItems.length} PDF(s) to process, ${deletedItems.length} deleted`
   );
 
   // Step 4: Handle deleted files — remove vectors
   for (const deleted of deletedItems) {
-    logger.info(`[${indexName}] Removing vectors for deleted file: ${deleted.name}`);
-    await deleteByFileId(index, deleted.id);
+    logger.info(`[${storeName}] Removing vectors for deleted file: ${deleted.name}`);
+    await deleteByFileId(client, deleted.id);
   }
 
   // Step 5: Process each new/modified PDF
@@ -74,19 +74,19 @@ export async function runIngestion(config: IngestConfig) {
 
   for (const item of pdfItems) {
     const alreadyProcessed = await checkIfProcessed(
-      index,
+      client,
       item.id,
       item.lastModifiedDateTime
     );
 
     if (alreadyProcessed) {
-      logger.info(`[${indexName}] Skipping ${item.name} — already processed`);
+      logger.info(`[${storeName}] Skipping ${item.name} — already processed`);
       skippedCount++;
       continue;
     }
 
     logger.info(
-      `[${indexName}] Processing: ${item.name} (${(item.size / 1024).toFixed(1)} KB)`
+      `[${storeName}] Processing: ${item.name} (${(item.size / 1024).toFixed(1)} KB)`
     );
 
     const pdfBuffer = await downloadFile(userId, item.id);
@@ -100,29 +100,29 @@ export async function runIngestion(config: IngestConfig) {
     );
 
     if (chunks.length === 0) {
-      logger.warn(`[${indexName}] No text extracted from ${item.name}, skipping`);
+      logger.warn(`[${storeName}] No text extracted from ${item.name}, skipping`);
       continue;
     }
 
-    logger.info(`[${indexName}] Extracted ${chunks.length} chunks from ${item.name}`);
+    logger.info(`[${storeName}] Extracted ${chunks.length} chunks from ${item.name}`);
 
     const embedded = await embedChunks(chunks);
-    await upsertVectors(index, embedded);
+    await upsertVectors(client, embedded);
 
     processedCount++;
     totalChunks += chunks.length;
-    logger.info(`[${indexName}] Completed ${item.name}: ${chunks.length} vectors upserted`);
+    logger.info(`[${storeName}] Completed ${item.name}: ${chunks.length} vectors upserted`);
   }
 
   // Step 6: Save new delta token ONLY after all files succeed
   if (deltaResponse.deltaToken) {
-    await saveDeltaToken(index, deltaResponse.deltaToken);
-    logger.info(`[${indexName}] Delta token saved for next run`);
+    await saveDeltaToken(client, deltaResponse.deltaToken);
+    logger.info(`[${storeName}] Delta token saved for next run`);
   }
 
   // Step 7: Summary
   const summary = {
-    store: indexName,
+    store: storeName,
     firstRun: isFirstRun,
     totalItemsFromDelta: deltaResponse.items.length,
     pdfsProcessed: processedCount,
@@ -131,6 +131,6 @@ export async function runIngestion(config: IngestConfig) {
     totalChunksUpserted: totalChunks,
   };
 
-  logger.info(`[${indexName}] Ingestion complete`, summary);
+  logger.info(`[${storeName}] Ingestion complete`, summary);
   return summary;
 }

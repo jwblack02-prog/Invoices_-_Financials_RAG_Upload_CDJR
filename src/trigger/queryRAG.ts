@@ -1,7 +1,7 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
 import type { QueryMatch, QueryRequest, QueryResponse } from "../lib/types.js";
 import { embedQuery } from "../lib/embedder.js";
-import { getPineconeIndex, queryVectors } from "../lib/pineconeClient.js";
+import { getSupabaseClient, queryVectors } from "../lib/supabaseClient.js";
 import { generateAnswer } from "../lib/llm.js";
 
 async function sendTelegramReply(
@@ -60,9 +60,9 @@ export const queryRAG = task({
     const embedding = await embedQuery(question);
     logger.info("Question embedded", { dimensions: embedding.length });
 
-    // Step 2: Query Pinecone for relevant chunks
-    const index = getPineconeIndex();
-    const matches = await queryVectors(index, embedding, 5);
+    // Step 2: Query Supabase for relevant chunks
+    const client = getSupabaseClient();
+    const matches = await queryVectors(client, embedding, 5);
     logger.info(`Found ${matches.length} matching chunks`);
 
     if (matches.length === 0) {

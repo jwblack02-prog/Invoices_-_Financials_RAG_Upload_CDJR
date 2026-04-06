@@ -4,7 +4,7 @@
  */
 import "dotenv/config";
 import { embedQuery } from "./lib/embedder.js";
-import { getPineconeIndex, queryVectors } from "./lib/pineconeClient.js";
+import { getSupabaseClient, queryVectors } from "./lib/supabaseClient.js";
 import { generateAnswer } from "./lib/llm.js";
 
 async function main() {
@@ -18,10 +18,10 @@ async function main() {
   const embedding = await embedQuery(question);
   console.log(`  Embedded (${embedding.length} dimensions)\n`);
 
-  // Step 2: Query Pinecone
-  console.log("Querying Pinecone...");
-  const index = getPineconeIndex();
-  const matches = await queryVectors(index, embedding, 5);
+  // Step 2: Query Supabase
+  console.log("Querying Supabase...");
+  const client = getSupabaseClient();
+  const matches = await queryVectors(client, embedding, 5);
   console.log(`  Found ${matches.length} matches:\n`);
 
   for (const match of matches) {
