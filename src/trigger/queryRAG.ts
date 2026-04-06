@@ -1,7 +1,7 @@
 import { task, logger } from "@trigger.dev/sdk/v3";
 import type { QueryMatch, QueryRequest, QueryResponse } from "../lib/types.js";
 import { embedQuery } from "../lib/embedder.js";
-import { getSupabaseClient, queryVectors } from "../lib/supabaseClient.js";
+import { getSupabaseClient, queryVectors, searchByText } from "../lib/supabaseClient.js";
 import { generateAnswer } from "../lib/llm.js";
 
 async function sendTelegramMessage(
@@ -102,11 +102,26 @@ export const queryRAG = task({
       const embedding = await embedQuery(question);
       logger.info("Question embedded", { dimensions: embedding.length });
 
-      // Step 2: Query Supabase for relevant chunks
+      // Step 2: Vector similarity search
       const client = getSupabaseClient();
       const allMatches = await queryVectors(client, embedding, 30);
-      const matches = allMatches.filter((m) => m.score >= 0.35);
-      logger.info(`Found ${matches.length} matching chunks (of ${allMatches.length} retrieved)`);
+      const vectorMatches = allMatches.filter((m) => m.score >= 0.20);
+      logger.info(`Vector matches: ${vectorMatches.length} (of ${allMatches.length} retrieved)`);
+
+      // Step 3: FTS keyword search — catches chunks in PDFs not named after the vendor
+      const ftsMatches = await searchByText(client, question, 20);
+      logger.info(`FTS matches: ${ftsMatches.length}`);
+
+      // Merge: vector results take precedence; FTS fills gaps
+      const seen = new Set<string>(vectorMatches.map((m) => m.id));
+      const matches = [...vectorMatches];
+      for (const m of ftsMatches) {
+        if (!seen.has(m.id)) {
+          matches.push(m);
+          seen.add(m.id);
+        }
+      }
+      logger.info(`Combined matches: ${matches.length}`);
       if (matches.length > 0) {
         logger.info(`Match scores: ${matches.map(m => m.score.toFixed(3)).join(', ')}`);
       }

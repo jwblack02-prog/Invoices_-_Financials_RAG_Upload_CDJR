@@ -87,6 +87,26 @@ export async function queryVectors(
   }));
 }
 
+export async function searchByText(
+  client: SupabaseClient,
+  query: string,
+  limit = 20
+): Promise<QueryMatch[]> {
+  const { data, error } = await client.rpc("search_documents_fts", {
+    search_query: query,
+    match_count: limit,
+  });
+
+  if (error) throw new Error(`Supabase FTS search failed: ${error.message}`);
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    score: row.score as number,
+    text: row.text,
+    metadata: row.metadata || {},
+  }));
+}
+
 export async function deleteByFileId(
   client: SupabaseClient,
   fileId: string
