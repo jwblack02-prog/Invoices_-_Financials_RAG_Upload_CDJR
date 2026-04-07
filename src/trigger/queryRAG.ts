@@ -104,12 +104,12 @@ export const queryRAG = task({
 
       // Step 2: Vector similarity search
       const client = getSupabaseClient();
-      const allMatches = await queryVectors(client, embedding, 30);
+      const allMatches = await queryVectors(client, embedding, 50);
       const vectorMatches = allMatches.filter((m) => m.score >= 0.20);
       logger.info(`Vector matches: ${vectorMatches.length} (of ${allMatches.length} retrieved)`);
 
       // Step 3: FTS keyword search — catches chunks in PDFs not named after the vendor
-      const ftsMatches = await searchByText(client, question, 20);
+      const ftsMatches = await searchByText(client, question, 30);
       logger.info(`FTS matches: ${ftsMatches.length}`);
 
       // Merge: vector results take precedence; FTS fills gaps
