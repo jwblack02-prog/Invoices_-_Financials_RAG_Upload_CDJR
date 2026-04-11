@@ -3,6 +3,7 @@ import type { QueryMatch, QueryRequest, QueryResponse } from "../lib/types.js";
 import { embedQuery } from "../lib/embedder.js";
 import { getSupabaseClient, queryVectors, searchByText } from "../lib/supabaseClient.js";
 import { generateAnswer } from "../lib/llm.js";
+import { extractSignificantKeywords, filterAndRankChunks } from "../lib/queryFilter.js";
 
 async function sendTelegramMessage(
   token: string,
@@ -64,7 +65,7 @@ async function sendTelegramReply(
   }
 
   if (sourceLines.length > 0) {
-    text += "\n\n📄 <b>Sources:</b>\n" + sourceLines.join("\n");
+    text += "\n\n———————————\n📄 <b>Sources:</b>\n" + sourceLines.join("\n");
   }
 
   await sendTelegramMessage(token, chatId, text, "HTML");
@@ -108,8 +109,12 @@ export const queryRAG = task({
       const vectorMatches = allMatches.filter((m) => m.score >= 0.20);
       logger.info(`Vector matches: ${vectorMatches.length} (of ${allMatches.length} retrieved)`);
 
-      // Step 3: FTS keyword search — catches chunks in PDFs not named after the vendor
-      const ftsMatches = await searchByText(client, question, 30);
+      // Step 3: FTS keyword search — use entity keywords only (not full question)
+      // to avoid noise from common words like "spent", "2025" drowning out vendor matches
+      const entityKeywords = extractSignificantKeywords(question);
+      const ftsQuery = entityKeywords.length > 0 ? entityKeywords.join(" ") : question;
+      logger.info(`FTS query terms: ${ftsQuery}`);
+      const ftsMatches = await searchByText(client, ftsQuery, 30);
       logger.info(`FTS matches: ${ftsMatches.length}`);
 
       // Merge: vector results take precedence; FTS fills gaps
@@ -122,9 +127,6 @@ export const queryRAG = task({
         }
       }
       logger.info(`Combined matches: ${matches.length}`);
-      if (matches.length > 0) {
-        logger.info(`Match scores: ${matches.map(m => m.score.toFixed(3)).join(', ')}`);
-      }
 
       if (matches.length === 0) {
         const answer = "I couldn't find any relevant documents to answer your question.";
@@ -132,13 +134,21 @@ export const queryRAG = task({
         return { answer, sources: [] };
       }
 
-      // Step 3: Generate answer with LLM
-      const answer = await generateAnswer(question, matches);
+      // Step 4: Post-retrieval relevance filter
+      const keywords = extractSignificantKeywords(question);
+      logger.info(`Filter keywords: ${keywords.join(", ")}`);
+      const filtered = filterAndRankChunks(matches, question, 30);
+      logger.info(`After filter: ${filtered.length} of ${matches.length} chunks retained`);
+      const sourceFiles = [...new Set(filtered.map(m => m.metadata?.source_file))];
+      logger.info(`Source files in context: ${sourceFiles.join(", ")}`);
+
+      // Step 5: Generate answer with LLM
+      const answer = await generateAnswer(question, filtered);
       logger.info("Answer generated", { answerLength: answer.length });
 
-      if (chatId) await sendTelegramReply(chatId, answer, matches);
+      if (chatId) await sendTelegramReply(chatId, answer, filtered);
 
-      return { answer, sources: matches };
+      return { answer, sources: filtered };
     } finally {
       if (thinkingInterval) clearInterval(thinkingInterval);
     }
